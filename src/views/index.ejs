@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Company Match</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <header class="p-6 border-b bg-white"><h1 class="text-2xl font-semibold">Company Match</h1></header>
+  <main class="max-w-5xl mx-auto p-6">
+    <p class="mb-4 text-sm text-slate-600">Indexed profiles: <span class="font-medium"><%= profileCount || 0 %></span>. If you set a small LIMIT in .env, some sample rows may not match.</p>
+    <form action="/match" method="post" class="grid gap-4 md:grid-cols-2 bg-white p-6 rounded-xl shadow">
+      <input type="hidden" name="csrf" value="<%= csrfToken %>" />
+      <div>
+        <label class="block text-sm font-medium mb-1">Name</label>
+        <input name="name" value="<%= q.name || '' %>" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Website</label>
+        <input name="website" value="<%= q.website || '' %>" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Phone</label>
+        <input name="phone" value="<%= q.phone || '' %>" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Facebook</label>
+        <input name="facebook" value="<%= q.facebook || '' %>" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring" />
+      </div>
+      <div class="md:col-span-2 flex items-center justify-between">
+        <div class="text-sm text-slate-500">Submit any subset; we’ll score and return the best match.</div>
+        <button class="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Search</button>
+      </div>
+    </form>
+
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold mb-3">Sample Inputs</h2>
+      <div class="overflow-auto rounded-xl shadow bg-white">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-600">
+            <tr>
+              <th class="text-left px-4 py-2">Name</th>
+              <th class="text-left px-4 py-2">Phone</th>
+              <th class="text-left px-4 py-2">Website</th>
+              <th class="text-left px-4 py-2">Facebook</th>
+              <th class="px-4 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% (samples || []).forEach((r) => { %>
+              <tr class="border-t">
+                <td class="px-4 py-2"><%= r['input name'] || '' %></td>
+                <td class="px-4 py-2"><%= r['input phone'] || '' %></td>
+                <td class="px-4 py-2"><%= r['input website'] || '' %></td>
+                <td class="px-4 py-2"><%= r['input_facebook'] || '' %></td>
+                <td class="px-4 py-2">
+                  <form action="/match" method="post" class="inline">
+                    <input type="hidden" name="csrf" value="<%= csrfToken %>" />
+                    <input type="hidden" name="name" value="<%= r['input name'] || '' %>" />
+                    <input type="hidden" name="phone" value="<%= r['input phone'] || '' %>" />
+                    <input type="hidden" name="website" value="<%= r['input website'] || '' %>" />
+                    <input type="hidden" name="facebook" value="<%= r['input_facebook'] || '' %>" />
+                    <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded">Match</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

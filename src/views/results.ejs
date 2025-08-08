@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Company Match - Results</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <header class="p-6 border-b bg-white"><a class="text-slate-500 hover:text-slate-700" href="/">← Back</a> <h1 class="inline ml-3 text-2xl font-semibold">Results</h1></header>
+  <main class="max-w-5xl mx-auto p-6 grid gap-6">
+    <p class="text-sm text-slate-600">Indexed profiles: <span class="font-medium"><%= profileCount || 0 %></span>. Limited indexes may not contain the requested company; we still show best fuzzy candidates if available.</p>
+
+    <form action="/match" method="post" class="bg-white rounded-xl shadow p-4 grid md:grid-cols-5 gap-3 items-end">
+      <input type="hidden" name="csrf" value="<%= csrfToken %>" />
+      <div>
+        <label class="block text-xs text-slate-600">Filter contains</label>
+        <input name="contains" value="<%= (meta?.contains || '') %>" class="w-full border rounded px-3 py-2" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-600">Min score</label>
+        <input name="minScore" type="number" step="0.1" value="<%= (meta?.minScore || 0) %>" class="w-full border rounded px-3 py-2" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-600">Sort</label>
+        <select name="sort" class="w-full border rounded px-3 py-2">
+          <option value="score" <%= (meta?.sort==='score'?'selected':'') %>>Score</option>
+          <option value="name" <%= (meta?.sort==='name'?'selected':'') %>>Name</option>
+          <option value="website" <%= (meta?.sort==='website'?'selected':'') %>>Website</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-600">Direction</label>
+        <select name="dir" class="w-full border rounded px-3 py-2">
+          <option value="desc" <%= (meta?.dir==='desc'?'selected':'') %>>Desc</option>
+          <option value="asc" <%= (meta?.dir==='asc'?'selected':'') %>>Asc</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-600">Per page</label>
+        <input name="perPage" type="number" value="<%= (meta?.perPage || 10) %>" class="w-full border rounded px-3 py-2" />
+      </div>
+
+      <!-- carry input fields so re-submit re-matches with filters/sort -->
+      <input type="hidden" name="name" value="<%= input.name || '' %>">
+      <input type="hidden" name="website" value="<%= input.website || '' %>">
+      <input type="hidden" name="phone" value="<%= input.phone || '' %>">
+      <input type="hidden" name="facebook" value="<%= input.facebook || '' %>">
+
+      <div class="md:col-span-5 flex justify-end">
+        <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded">Apply</button>
+      </div>
+    </form>
+    <section class="bg-white p-6 rounded-xl shadow">
+      <h2 class="text-lg font-semibold mb-3">Input</h2>
+      <pre class="text-sm bg-slate-100 rounded p-3 overflow-auto"><%- JSON.stringify({
+        name: String(input.name||'').slice(0,256),
+        website: String(input.website||'').slice(0,2048),
+        phone: String(input.phone||'').slice(0,64),
+        facebook: String(input.facebook||'').slice(0,2048)
+      }, null, 2) %></pre>
+    </section>
+
+    <section class="bg-white p-6 rounded-xl shadow">
+      <h2 class="text-lg font-semibold mb-3">Best Match</h2>
+      <% if (best) { %>
+        <div class="grid gap-2">
+          <div><span class="font-medium">Website:</span> <a class="text-indigo-600 hover:underline" href="<%= sanitizeHref(best.website) %>" target="_blank" rel="noreferrer noopener"><%= best.website %></a></div>
+          <% if (best.name) { %><div><span class="font-medium">Name:</span> <%= best.name %></div><% } %>
+          <% if ((best.phones||[]).length) { %><div><span class="font-medium">Phones:</span> <%= best.phones.join(', ') %></div><% } %>
+          <% if (best.address) { %><div><span class="font-medium">Address:</span> <%= best.address %></div><% } %>
+          <% if (best.social) { %>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <% for (const [k, arr] of Object.entries(best.social)) { %>
+                <% (arr||[]).forEach(u => { %>
+                  <a class="text-sm text-white bg-slate-700 hover:bg-slate-800 px-2 py-1 rounded" href="<%= sanitizeHref(u) %>" target="_blank" rel="noreferrer noopener"><%= k %></a>
+                <% }) %>
+              <% } %>
+            </div>
+          <% } %>
+        </div>
+      <% } else { %>
+        <div class="text-slate-500">No match.</div>
+      <% } %>
+    </section>
+
+    <section class="bg-white p-6 rounded-xl shadow">
+      <h2 class="text-lg font-semibold mb-3">Top Candidates</h2>
+      <% if ((candidates||[]).length) { %>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead>
+              <tr class="text-left border-b">
+                <th class="py-2 pr-4">Score</th>
+                <th class="py-2 pr-4">Website</th>
+                <th class="py-2 pr-4">Name</th>
+                <th class="py-2 pr-4">Phones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% candidates.forEach(c => { %>
+                <tr class="border-b hover:bg-slate-50">
+                  <td class="py-2 pr-4"><%= c.score %></td>
+                  <td class="py-2 pr-4"><a class="text-indigo-600 hover:underline" href="<%= c.profile.website %>" target="_blank" rel="noreferrer"><%= c.profile.website %></a></td>
+                  <td class="py-2 pr-4"><%= c.profile.name || '' %></td>
+                  <td class="py-2 pr-4"><%= (c.profile.phones||[]).join(', ') %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex items-center justify-between mt-3 text-sm text-slate-600">
+          <div>Showing page <span class="font-medium"><%= meta?.page || 1 %></span> of <span class="font-medium"><%= meta?.totalPages || 1 %></span> (total <%= meta?.total || candidates.length %>)</div>
+          <div class="flex gap-2">
+            <form action="/match" method="post">
+              <input type="hidden" name="csrf" value="<%= csrfToken %>" />
+              <input type="hidden" name="page" value="<%= Math.max(1, (meta?.page || 1) - 1) %>">
+              <input type="hidden" name="perPage" value="<%= meta?.perPage || 10 %>">
+              <input type="hidden" name="sort" value="<%= meta?.sort || 'score' %>">
+              <input type="hidden" name="dir" value="<%= meta?.dir || 'desc' %>">
+              <input type="hidden" name="minScore" value="<%= meta?.minScore || 0 %>">
+              <input type="hidden" name="contains" value="<%= meta?.contains || '' %>">
+              <input type="hidden" name="name" value="<%= input.name || '' %>">
+              <input type="hidden" name="website" value="<%= input.website || '' %>">
+              <input type="hidden" name="phone" value="<%= input.phone || '' %>">
+              <input type="hidden" name="facebook" value="<%= input.facebook || '' %>">
+              <button class="px-3 py-1 rounded border bg-white disabled:opacity-50" <%= (meta?.page||1) <= 1 ? 'disabled' : '' %>>Prev</button>
+            </form>
+            <form action="/match" method="post">
+              <input type="hidden" name="csrf" value="<%= csrfToken %>" />
+              <input type="hidden" name="page" value="<%= Math.min((meta?.totalPages || 1), (meta?.page || 1) + 1) %>">
+              <input type="hidden" name="perPage" value="<%= meta?.perPage || 10 %>">
+              <input type="hidden" name="sort" value="<%= meta?.sort || 'score' %>">
+              <input type="hidden" name="dir" value="<%= meta?.dir || 'desc' %>">
+              <input type="hidden" name="minScore" value="<%= meta?.minScore || 0 %>">
+              <input type="hidden" name="contains" value="<%= meta?.contains || '' %>">
+              <input type="hidden" name="name" value="<%= input.name || '' %>">
+              <input type="hidden" name="website" value="<%= input.website || '' %>">
+              <input type="hidden" name="phone" value="<%= input.phone || '' %>">
+              <input type="hidden" name="facebook" value="<%= input.facebook || '' %>">
+              <button class="px-3 py-1 rounded border bg-white disabled:opacity-50" <%= (meta?.page||1) >= (meta?.totalPages||1) ? 'disabled' : '' %>>Next</button>
+            </form>
+          </div>
+        </div>
+      <% } else { %>
+        <div class="text-slate-500">No candidates.</div>
+      <% } %>
+    </section>
+  </main>
+</body>
+</html>
