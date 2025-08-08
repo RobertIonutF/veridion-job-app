@@ -4,6 +4,8 @@ This project scrapes basic company data from a list of websites, merges with pro
 
 AI usage note: I used AI within Visual Studio Code as a focused assistant (not “vibe coding”). I guided it with explicit goals from `meta/req.md`, manually debugged and adjusted code where needed, and wrote pieces myself when the model’s direction wasn’t satisfactory. Tests were also assisted by AI to codify expected behavior, serving as executable acceptance criteria.
 
+> License: This project is licensed for interview evaluation only. Please read `LICENSE.md` before using or sharing the code.
+
 ## Pipeline
 1) Scrape websites from `data/sample-websites.csv` and extract phones, socials, address.
 2) Merge with `data/sample-websites-company-names.csv` into `out/profiles.json`.
