@@ -2,8 +2,18 @@ import 'dotenv/config';
 import fs from 'node:fs';
 import MiniSearch from 'minisearch';
 
+/**
+ * Company profile shape used for indexing.
+ */
 interface Profile { website: string; name?: string; phones?: string[]; social?: Record<string, string[]>; address?: string }
 
+/**
+ * Build a MiniSearch index from a JSON list of profiles and persist it to disk.
+ *
+ * Environment variables
+ * - PROFILES_OUT: path to input profiles JSON (default: out/profiles.json)
+ * - INDEX_PATH: path to write the index JSON (default: out/index.json)
+ */
 async function main() {
   const profilesPath = process.env.PROFILES_OUT || process.argv[2] || 'out/profiles.json';
   const indexOutPath = process.env.INDEX_PATH || 'out/index.json';

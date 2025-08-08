@@ -8,6 +8,19 @@ import cliProgress from 'cli-progress';
 import { Worker } from 'node:worker_threads';
 import * as cheerio from 'cheerio';
 
+/**
+ * Scrape websites listed in a CSV, extract signals, and write `out/scraped.json`.
+ *
+ * Env flags
+ * - SCRAPE_INPUT: CSV with `website|url|domain` header
+ * - SCRAPED_OUT: output file path
+ * - LIMIT: optional cap on sites
+ * - CONCURRENCY: parallel requests
+ * - REQUEST_TIMEOUT_MS: per request timeout
+ * - DEBUG_SCRAPE: verbose logs when truthy
+ * - HTTPS_PROXY / HTTP_PROXY: proxy URL
+ * - INSECURE_TLS=1: disable TLS verification (dev only)
+ */
 async function main() {
   configureHttp();
   const websitesCsvPath = process.env.SCRAPE_INPUT || process.argv[2] || 'data/sample-websites.csv';
@@ -65,6 +78,7 @@ async function main() {
   console.log(`Scraped ${crawled}/${websites.length} sites. Saved to ${scrapedOutPath}`);
 }
 
+/** Normalize a URL (ensure protocol, drop hash). */
 function normalizeUrl(u: string) {
   try {
     const url = new URL(u.startsWith('http') ? u : `https://${u}`);
@@ -75,6 +89,7 @@ function normalizeUrl(u: string) {
   }
 }
 
+/** Default browser-like headers to reduce blocks. */
 function defaultHeaders() {
   const uas = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36',
@@ -92,6 +107,10 @@ function defaultHeaders() {
   } as Record<string, string>;
 }
 
+/**
+ * From a fetched page, pick a handful of likely secondary pages (contact/about/etc.).
+ * De-duplicates and caps to 3 urls.
+ */
 function pickSecondaryUrls(html: string, base: string) {
   const $ = cheerio.load(html);
   const candidates: string[] = [];
@@ -107,6 +126,7 @@ function pickSecondaryUrls(html: string, base: string) {
   return Array.from(new Set(candidates)).slice(0, 3);
 }
 
+/** Merge two extraction results, de-duplicating phones and social links. */
 function mergeExtracts(a: { phones: string[]; social: Record<string, string[]>; address?: string }, b: { phones: string[]; social: Record<string, string[]>; address?: string }) {
   const phones = Array.from(new Set([...(a.phones||[]), ...(b.phones||[])]));
   const social: Record<string, string[]> = {};
@@ -118,10 +138,15 @@ function mergeExtracts(a: { phones: string[]; social: Record<string, string[]>; 
   return { phones, social, address };
 }
 
+/** True when extraction contains any phone or at least one social link. */
 function hasSignals(ex: { phones: string[]; social: Record<string, string[]>; address?: string }) {
   return ex.phones.length > 0 || Object.values(ex.social).some(a => a?.length);
 }
 
+/**
+ * Try multiple URL variants and up to 2 attempts each with timeouts and redirect following.
+ * Returns the first HTML page that looks valid.
+ */
 async function fetchWithFallbacks(u: string): Promise<{ html: string; url: string } | null> {
   const tried = new Set<string>();
   const variants = buildUrlVariants(u);
@@ -162,6 +187,7 @@ async function fetchWithFallbacks(u: string): Promise<{ html: string; url: strin
   return null;
 }
 
+/** Build a small set of common URL variants for a host (http/https, www, index/contact/about). */
 function buildUrlVariants(u: string) {
   let host = u;
   try { host = new URL(u).host; } catch {}
@@ -184,12 +210,14 @@ function buildUrlVariants(u: string) {
   return Array.from(new Set(variants));
 }
 
+/** Conditional debug log gated by DEBUG_SCRAPE env. */
 function debug(msg: string) {
   if (process.env.DEBUG_SCRAPE) {
     console.log(`[scrape] ${msg}`);
   }
 }
 
+/** Configure undici global dispatcher for proxy or insecure TLS (dev only). */
 function configureHttp() {
   try {
     const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
@@ -206,6 +234,10 @@ function configureHttp() {
 }
 
 // Optional: parse HTML in a worker to offload CPU work when WORKERS=1
+/**
+ * Optional worker-based HTML parsing to offload CPU when WORKERS=1.
+ * Not used by default; left as a demonstration.
+ */
 function parseHtmlInWorker(html: string, baseUrl: string): Promise<{ phones: string[]; social: Record<string, string[]>; address?: string }>{
   return new Promise((resolve, reject) => {
     const worker = new Worker(

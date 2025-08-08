@@ -1,14 +1,17 @@
 # Reasoning and Approach
 
 # Preface: AI and reasoning on its own
-I used AI (more precisely, GPT‑5) not for “vibe‑coding,” but as a focused assistant. My approach was to drive toward the product requirements as a software engineer: define clear goals, have the AI draft pieces, then step in wherever it got stuck or produced problematic code. I first saved the requirements (the brief in `meta/req.md`) and guided the AI to the end result. I also added tests (unit and integration) and a tiny EJS + Tailwind frontend for easier validation.
+I used AI (more precisely, GPT‑5) as a focused assistant—not for “vibe‑coding.” I defined clear goals from `meta/req.md`, asked for targeted help, and reviewed/edit every change. Where drafts were off, I wrote or corrected the code myself. I added tests (unit and integration) and a tiny EJS + Tailwind UI to validate behavior quickly.
+
+Process at a glance: Starting code → Iteration → Optimizing → Securing → Refactoring → Documentation/Tests.
 
 # Steps
-1. Guide the A.I towards the product requirements. (Step in when needed, e.g: applying a different algorithm, concept, etc)
+1. Guide the AI toward the product requirements (step in when needed—change algorithms, data shapes, or constraints).
 2. Add tests
-3. Optimize & Secure API & process
+3. Optimize the algorithm and data path
+3.1 Secure the API and UI flows
 4. Documentation.
-5. Deploy
+5. Documentation and developer experience (DX)
 
 # Why? Doesn’t this defeat the purpose of testing skills?
 - My view: the primary goal is translating requirements into robust software. AI can accelerate this while I retain ownership of architecture, quality, and security. Treat initial drafts as fallible; harden and optimize them.
@@ -62,7 +65,7 @@ All pieces read configuration from `.env` (with sane defaults) so I can tune con
    - Used `undici.fetch` with `redirect: 'follow'` and AbortController timeouts.
    - Added optional proxy and insecure TLS for stubborn hosts (dev only).
    - Built small extractors: phones with `libphonenumber-js`; social links (facebook/twitter/linkedin etc. by anchor pattern); best‑effort address.
-   - Made the run concurrent (`CONCURRENCY`) and added a progress bar.
+  - Made the run concurrent (`CONCURRENCY`) and added a progress bar.
    - Logged counts so I can infer coverage/fill rates during runs.
 3) Merged signals with names:
    - Read `sample-websites-company-names.csv` and mapped to websites.
@@ -83,7 +86,7 @@ All pieces read configuration from `.env` (with sane defaults) so I can tune con
      - MiniSearch queries for text fields + exact canonical website matches.
      - If empty, fuzzy Fuse queries (and a looser second pass) and, as last resort, brute‑force scoring over the index.
    - Pagination/filter/sort for results so I can triage candidates quickly.
-  - Performance: precomputed fields and lookup maps (see below), bounded workload caps, and simple timing metrics are included in responses (UI path) to observe latency.
+  - Performance: precomputed fields and lookup maps (see below), bounded workload caps, and simple timing metrics in responses (HTML UI) to observe latency.
 6) Added a tiny EJS UI strictly for interview demo/testing (not for prod):
    - Home page form + a table sourced from `API-input-sample.csv` with one‑click Match.
    - Results page shows best match and candidates with sorting/filtering/pagination.

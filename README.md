@@ -11,6 +11,12 @@ AI usage note: I used AI within Visual Studio Code as a focused assistant (not �
 2) Merge with `data/sample-websites-company-names.csv` into `out/profiles.json`.
 3) Build MiniSearch index at `out/index.json`.
 
+## More docs
+- reasoning.md — recommended read. Contains my approach, trade‑offs, and the full process: Starting code → Iteration → Optimizing → Securing → Refactoring (plus testing and docs).
+- tests/README.md — what is covered by the test suite and how to run/extend it.
+- src/views/README.md — purpose and scope of the minimal EJS demo UI.
+- meta/req.md — the original brief used to guide the implementation.
+
 ## API
 - Health: `GET /health` → `{ ok: true }`
 - Match: `POST /match`

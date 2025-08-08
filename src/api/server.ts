@@ -17,6 +17,9 @@ import type { CompanyProfile as Profile } from '../types.d.ts';
 
 
 // Augmented profile with precomputed fields for faster matching
+/**
+ * Augmented profile with precomputed fields for faster matching.
+ */
 interface AugProfile extends Profile {
   _id: number;
   _canonSite: string;
@@ -28,6 +31,11 @@ interface AugProfile extends Profile {
   _fbHandles: Set<string>;
 }
 
+/**
+ * Load the MiniSearch index + profiles from disk, and build fuzzy indexes and lookup maps.
+ *
+ * @param indexPath Path to the serialized index JSON (contains { index, profiles }).
+ */
 function loadIndexFrom(indexPath: string) {
   const raw = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
   const miniSearch = MiniSearch.loadJSON(
@@ -79,6 +87,10 @@ function loadIndexFrom(indexPath: string) {
   return { mini: miniSearch, profiles, fuse: fuzzyIndex, fuseLoose: fuzzyIndexLoose, maps: { byCanonSite, byPhone10, byFacebook, byDomainToken } };
 }
 
+/**
+ * Legacy scoring path (kept for parity with tests). Prefers exact website/phone/facebook
+ * and combines name/domain token similarity.
+ */
 function scoreMatch(input: Partial<Profile>, candidate: AugProfile) {
   let score = 0;
   // Website exact canonical match
@@ -158,6 +170,7 @@ function preSanitizeUrl(u: string) {
   return s;
 }
 
+/** Canonicalize a URL to host[/path], stripping scheme/www and trailing slashes. */
 function canonicalUrl(u: string) {
   try {
     const fixed = preSanitizeUrl(u);
@@ -178,6 +191,7 @@ function canonicalUrl(u: string) {
   }
 }
 
+/** Canonicalize a Facebook page URL to `facebook.com/<handle>` form. */
 function canonicalFacebook(u: string) {
   try {
     const url = new URL(u.includes('://') ? u : `https://${u}`);
@@ -194,6 +208,12 @@ function canonicalFacebook(u: string) {
   }
 }
 
+/**
+ * Build and configure the Fastify app with security headers, CORS, rate limiting,
+ * CSRF for forms, EJS views, and the /match route.
+ *
+ * @param indexPath Optional path to an index JSON; falls back to env or default.
+ */
 export async function buildApp(indexPath?: string): Promise<FastifyInstance> {
   const app = Fastify({
     // Enable trust proxy if behind a proxy in some deployments
@@ -306,6 +326,7 @@ export async function buildApp(indexPath?: string): Promise<FastifyInstance> {
     } catch { return '#'; }
   }
 
+  // Health check
   app.get('/health', async () => ({ ok: true }));
 
   // Centralized error handling
@@ -340,6 +361,7 @@ export async function buildApp(indexPath?: string): Promise<FastifyInstance> {
     return res.view('index.ejs', { q: {}, samples, profileCount: profiles.length, csrfToken, sanitizeHref });
   });
 
+  // Match endpoint: accepts any subset of name/website/phone/facebook
   app.post('/match', async (req, res) => {
     const parsed = QuerySchema.safeParse(req.body || {});
     if (!parsed.success) {
@@ -541,6 +563,9 @@ export async function buildApp(indexPath?: string): Promise<FastifyInstance> {
   return app;
 }
 
+/**
+ * Start the HTTP server when executing this module directly.
+ */
 async function main() {
   const app = await buildApp(process.env.INDEX_PATH);
   const port = Number(process.env.PORT || 3000);
@@ -561,6 +586,7 @@ try {
 
 // Lightweight text utils for fuzzy scoring
 const STOP = new Set(['inc','inc.','co','co.','llc','ltd','ltd.','pty','pty.','plc','corp','corp.','company','companies','gmbh','srl','sa','bv','nv','llp','pc','p.c.','lp','pllc','pte','ag','usa','us','the','and','&']);
+/** Tokenize a company name, removing common suffixes and short/stop words. */
 function nameTokens(s: string) {
   return s
     .toLowerCase()
@@ -569,6 +595,7 @@ function nameTokens(s: string) {
     .map(t => t.trim())
     .filter(t => t.length > 1 && !STOP.has(t));
 }
+/** Jaccard similarity of two token sets (0..1). */
 function jaccard(a: string[], b: string[]) {
   if (!a.length || !b.length) return 0;
   const A = new Set(a), B = new Set(b);
@@ -577,6 +604,7 @@ function jaccard(a: string[], b: string[]) {
   const union = A.size + B.size - inter;
   return inter / union;
 }
+/** Extract a normalized host from a URL-like string. */
 function extractHost(u: string) {
   try {
     const fixed = preSanitizeUrl(u);
@@ -587,6 +615,7 @@ function extractHost(u: string) {
   }
 }
 const COMMON_TLDS = new Set(['com','org','net','io','co','us','uk','ca','de','fr','au','nz','in','info','biz','edu','gov','me']);
+/** Tokenize a host/domain (drop common TLDs, split on non-alphanumerics, drop stops). */
 function domainTokens(host: string) {
   const parts = host.split('.');
   if (parts.length > 1 && COMMON_TLDS.has(parts[parts.length - 1])) parts.pop();
@@ -598,6 +627,7 @@ function domainTokens(host: string) {
     .map(t => t.trim())
     .filter(t => t.length > 1 && !STOP.has(t));
 }
+/** Normalized Levenshtein similarity (1 - distance/maxLen). */
 function levenshteinRatio(a: string, b: string) {
   const m = a.length, n = b.length;
   if (!m && !n) return 1;
@@ -622,6 +652,7 @@ function levenshteinRatio(a: string, b: string) {
 export { scoreMatch, canonicalUrl, canonicalFacebook };
 
 // Simple HTML escape for error messages
+/** Minimal HTML escape for error messages. */
 function escapeHtml(str: string) {
   return String(str)
     .replace(/&/g, '&amp;')

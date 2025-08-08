@@ -10,6 +10,17 @@ const SOCIAL_PATTERNS = {
 };
 
 export function extractFromHtml(html: string, baseUrl: string) {
+  /**
+   * Parse an HTML document and extract phone numbers, social links, and a best-effort address.
+   *
+   * - Phones are detected from body text and tel: links, then normalized.
+   * - Social links are collected from anchors and JSON-LD `sameAs` arrays.
+   * - Address is retrieved from common selectors (address tags and microdata hints).
+   *
+   * @param html Raw HTML string.
+   * @param baseUrl The base URL used to resolve relative links and infer region.
+   * @returns Normalized signals: `{ phones: string[], social: Record<string,string[]>, address?: string }`.
+   */
   const $ = cheerio.load(html);
 
   // Phones: search text and tel: links; use libphonenumber-js to validate.
@@ -73,6 +84,7 @@ export function extractFromHtml(html: string, baseUrl: string) {
 }
 
 function toAbsoluteUrl(href: string, base: string) {
+  /** Convert a possibly relative href to an absolute URL using base. */
   try {
     return new URL(href, base).toString();
   } catch {
@@ -81,6 +93,7 @@ function toAbsoluteUrl(href: string, base: string) {
 }
 
 function normalizePhone(p: string) {
+  /** Normalize a phone-like string: collapse punctuation, keep + and digits, drop very short values. */
   const cleaned = p.trim()
     .replace(/\s+/g, ' ')
     .replace(/[()\.\-]/g, '')
@@ -91,10 +104,12 @@ function normalizePhone(p: string) {
 }
 
 function uniq<T>(arr: T[]) {
+  /** Return an array with unique items preserving insertion order. */
   return Array.from(new Set(arr));
 }
 
 function dedupeSocial(input: Record<string, string[]>) {
+  /** Canonicalize and de-duplicate social links for each network key. */
   const out: Record<string, string[]> = {};
   for (const k of Object.keys(input)) {
     out[k] = Array.from(new Set(input[k].map(canonicalizeUrl)));
@@ -103,6 +118,7 @@ function dedupeSocial(input: Record<string, string[]>) {
 }
 
 function extractAddress($: cheerio.CheerioAPI): string | undefined {
+  /** Extract a plausible address block from common selectors, if present. */
   const sel = 'address, [itemprop="address"], .address, .Address';
   const text = $(sel).first().text().trim();
   if (text && /[\w\s,.-]{10,}/.test(text)) return text;
@@ -110,6 +126,10 @@ function extractAddress($: cheerio.CheerioAPI): string | undefined {
 }
 
 function canonicalizeUrl(u: string) {
+  /**
+   * Canonicalize a URL: unwrap fb outbound links, strip hash and common tracking params.
+   * Falls back to splitting query when URL constructor fails.
+   */
   try {
     // Unwrap facebook outbound links
     if (/l\.facebook\.com\//i.test(u) && /[?&]u=/.test(u)) {
@@ -128,6 +148,7 @@ function canonicalizeUrl(u: string) {
 }
 
 function inferRegionFromUrl(u: string): string | undefined {
+  /** Infer a default phone parsing region from the domain TLD, when possible. */
   try {
     const host = new URL(u).host.toLowerCase();
     const tld = host.split('.').pop();
