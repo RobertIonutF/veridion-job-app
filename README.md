@@ -9,6 +9,14 @@ AI usage note: I used AI within Visual Studio Code as a focused assistant (not �
 2) Merge with `data/sample-websites-company-names.csv` into `out/profiles.json`.
 3) Build MiniSearch index at `out/index.json`.
 
+## API
+- Health: `GET /health` → `{ ok: true }`
+- Match: `POST /match`
+	- Body (JSON or form): `{ name?: string, website?: string, phone?: string, facebook?: string }`
+	- Response (JSON): `{ best: CompanyProfile|null, candidates: Array<{ score:number, profile: CompanyProfile }>, meta: { total, totalPages, page, perPage, sort, dir, minScore, contains, timings? } }`
+	- At least one of `name`, `website`, `phone`, or `facebook` is required.
+	- Form posts require a CSRF token (the demo UI handles this automatically). JSON clients do not need CSRF.
+
 ## Configure
 1) Copy the example env file and adjust values as needed:
 
@@ -52,6 +60,11 @@ npm start
 - Scraper concurrency is limited via p-limit to 20 parallel fetches; adjust in `src/scraper/scrape.ts`.
 - If scraping sites time out or block requests, you may see low coverage. The merge+index still work with names.
 - Matching uses exact/normalized signals for website, phone, and Facebook plus fuzzy text search fallback.
+
+## Demo UI (interview convenience)
+- `GET /` renders a simple form and a table sourced from `data/API-input-sample.csv` for one‑click matches.
+- `POST /match` also returns HTML when the request comes from the form and includes sorting, filtering, pagination, and timing metadata.
+- The UI uses Tailwind via CDN; it’s intentionally minimal and not intended for production.
 
 ## Security & performance
 - Security headers and CSP are set; CORS is strict and controlled by `ORIGINS`.

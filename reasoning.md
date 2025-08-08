@@ -1,7 +1,7 @@
 # Reasoning and Approach
 
-# Preface: A.I and reasoning on it's own.
-I've used A.I (more precisely GPT-5) but not to the extend of the now defined vibe-coding but from the perspective of a software engineer, where my understanding & knwoledge meant that I would be needed to solve this problem, the approach I took, was to use A.I & guide it torwards the end result, I would only get in where it stucks or the code seems to be problematic. My first approach was to save the requirments of the product (the P.R.D) and guide the A.I towards the end result. To that approach, I've also took the freedom to add tests (unit as well as integration tests) and also add a frontend with ejs and tailwind for ease of testing.
+# Preface: AI and reasoning on its own
+I used AI (more precisely, GPT‑5) not for “vibe‑coding,” but as a focused assistant. My approach was to drive toward the product requirements as a software engineer: define clear goals, have the AI draft pieces, then step in wherever it got stuck or produced problematic code. I first saved the requirements (the brief in `meta/req.md`) and guided the AI to the end result. I also added tests (unit and integration) and a tiny EJS + Tailwind frontend for easier validation.
 
 # Steps
 1. Guide the A.I towards the product requirements. (Step in when needed, e.g: applying a different algorithm, concept, etc)
@@ -10,9 +10,9 @@ I've used A.I (more precisely GPT-5) but not to the extend of the now defined vi
 4. Documentation.
 5. Deploy
 
-# Why, doesn't this defeat the purpose of an interview to test for skills?
-- In my own philosophy and understanding of software engineering, the code itself it's not the main aim, the main aim is to translate the requirements into code, at which the A.I does facilitate a faster approach, with the exception that we need to treat the starting code as faulty and insecure and attempt to optimize & secure it.
-- In other words, it's of interest if the code is readable, secure, optimized, documented & working and if, at some point in the future, I need to work on it again, otherwise, the main aim of a software engineer, is to provide an edge-case sustainable, scalable code, and if the usage of A.I helps towards it, it's a bonus since we are in the age of abundancy of data & artificial intelligence. ("Artifcial intelligence will never be able to replace software engineers, but software engineers who uses artificial intelligence, will.")
+# Why? Doesn’t this defeat the purpose of testing skills?
+- My view: the primary goal is translating requirements into robust software. AI can accelerate this while I retain ownership of architecture, quality, and security. Treat initial drafts as fallible; harden and optimize them.
+- What matters is that the code is readable, secure, optimized, documented, and working—maintainable for future changes. Using AI is a force multiplier when directed with engineering discipline. (“Artificial intelligence won’t replace software engineers; engineers who use AI will.”)
 
 # Introduction
 This document explains how I translated the requirements in `meta/req.md` into the implementation under `src/`, why I chose this stack, and the steps I followed to deliver a working end‑to‑end solution.
@@ -83,6 +83,7 @@ All pieces read configuration from `.env` (with sane defaults) so I can tune con
      - MiniSearch queries for text fields + exact canonical website matches.
      - If empty, fuzzy Fuse queries (and a looser second pass) and, as last resort, brute‑force scoring over the index.
    - Pagination/filter/sort for results so I can triage candidates quickly.
+  - Performance: precomputed fields and lookup maps (see below), bounded workload caps, and simple timing metrics are included in responses (UI path) to observe latency.
 6) Added a tiny EJS UI strictly for interview demo/testing (not for prod):
    - Home page form + a table sourced from `API-input-sample.csv` with one‑click Match.
    - Results page shows best match and candidates with sorting/filtering/pagination.
@@ -110,9 +111,32 @@ All pieces read configuration from `.env` (with sane defaults) so I can tune con
   - Track precision@1 on a labeled subset.
   - Log top‑k candidates to a CSV to facilitate manual QA and weight tuning.
 
+## Performance optimizations applied
+- Precomputed per‑profile features (AugProfile): canonical website host/path, domain tokens, normalized name + tokens, last‑10 digits set for phones, canonicalized Facebook handles.
+- Built fast lookup maps: by canonical site, by phone last‑10, by Facebook handle, and by domain token.
+- Fast scoring path that operates on precomputed features to avoid repeated allocations and parsing during requests.
+- Workload caps: `MAX_CANDIDATES` to bound candidate expansion and `MAX_BRUTE_FORCE` to limit last‑resort scoring on large indexes (with sampling when needed).
+- Timing metadata (gather/finalize/total ms) returned for the HTML UI to monitor performance.
+
+## Security hardening and clean‑code refactor
+- CSRF protection for browser form POSTs (cookie + hidden field); JSON API clients are unaffected.
+- Strict CORS via `ORIGINS` allowlist; disabled by default.
+- Security headers including CSP (allows Tailwind CDN script), HSTS in production, X‑Content‑Type‑Options, and others.
+- Output link sanitization in EJS templates (`sanitizeHref`) to avoid `javascript:`/other schemes.
+- Input validation via Zod with field length caps and safe parsing; central error and 404 handlers.
+- In‑memory IP rate limiting with configurable window and max requests.
+- Body size limit to reduce risk on large payloads.
+- Clean‑code refactors across modules: clarified naming, small helpers for canonicalization/tokenization, and consistent structure. Behavior preserved; readability improved.
+
+## Environment flags overview
+- Scraper: `SCRAPE_INPUT`, `SCRAPED_OUT`, `CONCURRENCY`, `LIMIT`, `REQUEST_TIMEOUT_MS`, `DEBUG_SCRAPE`, `INSECURE_TLS`, optional `HTTPS_PROXY`/`HTTP_PROXY`.
+- Merge/Index: `NAMES_INPUT`, `PROFILES_OUT`, `INDEX_PATH`.
+- API: `PORT`, `ORIGINS` (CORS), `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS`, `MAX_CANDIDATES`, `MAX_BRUTE_FORCE`, `API_INPUT_SAMPLE` for the demo UI.
+
 ## How to run
 - Configure `.env` (copy from `.env.example`). Key knobs: `LIMIT`, `CONCURRENCY`, `REQUEST_TIMEOUT_MS`, `INDEX_PATH`, `PORT`.
 - Pipeline: `npm run pipeline` (scrape → merge → index), then `npm start`.
+- Dev server (auto‑reload API): `npm run dev`.
 - Tests: `npm test` (unit + integration). For a richer integration run, execute the pipeline first.
 
 ## What I’d add with more time
